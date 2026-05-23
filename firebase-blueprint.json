@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Information about a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "termsAccepted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email", "createdAt"]
+    },
+    "MovieItem": {
+      "title": "Movie Item",
+      "description": "A movie object stored in a list.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "title": { "type": "string" },
+        "name": { "type": "string" },
+        "poster_path": { "type": "string" },
+        "backdrop_path": { "type": "string" },
+        "release_date": { "type": "string" },
+        "vote_average": { "type": "number" },
+        "overview": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "addedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile data."
+    },
+    "/users/{userId}/likedMovies/{movieId}": {
+      "schema": "MovieItem",
+      "description": "Movies liked by the user."
+    },
+    "/users/{userId}/watchlist/{movieId}": {
+      "schema": "MovieItem",
+      "description": "Movies in the user's watchlist."
+    }
+  }
+}

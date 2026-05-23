@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Default Deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprints
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['userId', 'email', 'createdAt'])
+          && data.keys().size() <= 8
+          && data.userId == request.auth.uid
+          && data.email is string && data.email.size() <= 256
+          && (!data.keys().hasAny(['displayName']) || data.displayName is string)
+          && (!data.keys().hasAny(['photoURL']) || data.photoURL is string)
+          && (!data.keys().hasAny(['termsAccepted']) || data.termsAccepted is bool);
+    }
+
+    function isValidMovieItem(data) {
+      // Basic validation for movie data to prevent resource poisoning
+      return data.keys().hasAll(['id'])
+          && data.id is number
+          && (data.get('title', '') is string)
+          && (data.get('name', '') is string)
+          && (data.get('poster_path', '') is string || data.get('poster_path', null) == null)
+          && (data.get('backdrop_path', '') is string || data.get('backdrop_path', null) == null)
+          && (data.get('overview', '') is string || data.get('overview', null) == null)
+          && (data.get('release_date', '') is string || data.get('release_date', null) == null)
+          && (data.get('vote_average', 0) is number);
+    }
+
+    // Rules for Users collection
+    match /users/{userId} {
+      // Path variable hardening
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidId(userId)
+                    && isValidUserProfile(incoming())
+                    && incoming().createdAt == existing().createdAt
+                    && incoming().userId == existing().userId;
+      
+      // Liked Movies
+      match /likedMovies/{movieId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(movieId);
+        allow create: if isOwner(userId) && isValidId(movieId) && isValidMovieItem(incoming());
+        allow delete: if isOwner(userId) && isValidId(movieId);
+      }
+
+      // Watchlist
+      match /watchlist/{movieId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(movieId);
+        allow create: if isOwner(userId) && isValidId(movieId) && isValidMovieItem(incoming());
+        allow delete: if isOwner(userId) && isValidId(movieId);
+      }
+    }
+  }
+}
